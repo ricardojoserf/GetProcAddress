@@ -33,21 +33,20 @@ namespace GetProcAddress
         static IntPtr AuxGetProcAddress(IntPtr pDosHdr, String func_name)
         {
             IntPtr hProcess = Process.GetCurrentProcess().Handle;
-            byte[] data = new byte[0x200];
+            byte[] data = new byte[Marshal.SizeOf(typeof(IMAGE_DOS_HEADER))];
             ReadProcessMemory(hProcess, pDosHdr, data, data.Length, out _);
 
             IMAGE_DOS_HEADER _dosHeader = MarshalBytesTo<IMAGE_DOS_HEADER>(data);
-            String dos_header_signature = _dosHeader.e_magic.ToString("X");
             uint e_lfanew_offset = _dosHeader.e_lfanew;
             IntPtr nthdr = IntPtr.Add(pDosHdr, Convert.ToInt32(e_lfanew_offset));
 
-            byte[] data2 = new byte[0x200];
+            byte[] data2 = new byte[Marshal.SizeOf(typeof(IMAGE_NT_HEADERS))];
             ReadProcessMemory(hProcess, nthdr, data2, data2.Length, out _);
             IMAGE_NT_HEADERS _ntHeader = MarshalBytesTo<IMAGE_NT_HEADERS>(data2);
             IMAGE_FILE_HEADER _fileHeader = _ntHeader.FileHeader;
 
             IntPtr optionalhdr = IntPtr.Add(nthdr, 24);
-            byte[] data3 = new byte[0x200];
+            byte[] data3 = new byte[Marshal.SizeOf(typeof(IMAGE_OPTIONAL_HEADER64))];
             ReadProcessMemory(hProcess, optionalhdr, data3, data3.Length, out _);
             IMAGE_OPTIONAL_HEADER64 _optionalHeader = MarshalBytesTo<IMAGE_OPTIONAL_HEADER64>(data3);
 
@@ -73,7 +72,7 @@ namespace GetProcAddress
             if (exportTableRVA != 0)
             {
                 IntPtr exportTableAddress = IntPtr.Add(pDosHdr, (int)exportTableRVA);
-                byte[] data4 = new byte[0x200];
+                byte[] data4 = new byte[Marshal.SizeOf(typeof(IMAGE_EXPORT_DIRECTORY))];
                 ReadProcessMemory(hProcess, exportTableAddress, data4, data4.Length, out _);
                 IMAGE_EXPORT_DIRECTORY exportTable = MarshalBytesTo<IMAGE_EXPORT_DIRECTORY>(data4);
 
@@ -108,7 +107,7 @@ namespace GetProcAddress
 
                 for (int i = 0; i < numberOfNames; i++)
                 {
-                    byte[] data5 = new byte[4];
+                    byte[] data5 = new byte[Marshal.SizeOf(typeof(UInt32))];
                     ReadProcessMemory(hProcess, auxaddressOfNamesRA, data5, data5.Length, out _);
                     UInt32 functionAddressVRA = MarshalBytesTo<UInt32>(data5);
                     IntPtr functionAddressRA = IntPtr.Add(pDosHdr, (int)functionAddressVRA);
@@ -122,12 +121,12 @@ namespace GetProcAddress
                     if (functionName == func_name)
                     {
                         // AdddressofNames --> AddressOfNamesOrdinals
-                        byte[] data7 = new byte[4];
+                        byte[] data7 = new byte[Marshal.SizeOf(typeof(UInt16))];
                         ReadProcessMemory(hProcess, auxaddressOfNameOrdinalsRA, data7, data7.Length, out _);
                         UInt16 ordinal = MarshalBytesTo<UInt16>(data7);
                         // AddressOfNamesOrdinals --> AddressOfFunctions
                         auxaddressOfFunctionsRA += 4 * ordinal;
-                        byte[] data8 = new byte[4];
+                        byte[] data8 = new byte[Marshal.SizeOf(typeof(UInt32))];
                         ReadProcessMemory(hProcess, auxaddressOfFunctionsRA, data8, data8.Length, out _);
                         UInt32 auxaddressOfFunctionsRAVal = MarshalBytesTo<UInt32>(data8);
                         IntPtr functionAddress = IntPtr.Add(pDosHdr, (int)auxaddressOfFunctionsRAVal);
@@ -145,7 +144,7 @@ namespace GetProcAddress
         {
             if (args.Length < 2)
             {
-                Console.WriteLine("[-] Usage: program.exe DLL_NAME FUNCTION_NAME");
+                Console.WriteLine("[-] Usage: GetProcAddress.exe DLL_NAME FUNCTION_NAME");
                 System.Environment.Exit(0);
             }
             string dll_name = args[0];
@@ -161,7 +160,7 @@ namespace GetProcAddress
             else
             {
                 Console.WriteLine("[+] Address of {0} ({1}): 0x{2}", func_name, dll_name, func_address.ToString("X"));
-                // Console.WriteLine("\n[+] Address of {0} ({1}): 0x{2} [GetProcAddress]", func_name, dll_name, GetProcAddress(LoadLibrary(dll_name), func_name).ToString("X"));
+                // Console.WriteLine("[+] Address of {0} ({1}): 0x{2} [GetProcAddress]", func_name, dll_name, GetProcAddress(LoadLibrary(dll_name), func_name).ToString("X"));
             }
         }
     }
