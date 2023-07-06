@@ -5,15 +5,13 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 
-namespace test
+namespace GetProcAddress_Implementation
 {
-    internal class test
+    internal class GetProcAddress_Implementation
     {
         [DllImport("kernel32.dll", SetLastError = true)] static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] lpBuffer, int dwSize, out IntPtr lpNumberOfBytesRead);
         [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Ansi)] static extern IntPtr LoadLibrary([MarshalAs(UnmanagedType.LPStr)] string lpFileName);
         // [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)] static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
-        // [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] public static extern IntPtr GetModuleHandle([MarshalAs(UnmanagedType.LPWStr)] string lpModuleName);
-
         [StructLayout(LayoutKind.Sequential)] public struct IMAGE_DOS_HEADER { public UInt16 e_magic; public UInt16 e_cblp; public UInt16 e_cp; public UInt16 e_crlc; public UInt16 e_cparhdr; public UInt16 e_minalloc; public UInt16 e_maxalloc; public UInt16 e_ss; public UInt16 e_sp; public UInt16 e_csum; public UInt16 e_ip; public UInt16 e_cs; public UInt16 e_lfarlc; public UInt16 e_ovno; [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)] public UInt16[] e_res1; public UInt16 e_oemid; public UInt16 e_oeminfo; [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)] public UInt16[] e_res2; public UInt32 e_lfanew; }
         [StructLayout(LayoutKind.Sequential)] public struct IMAGE_NT_HEADERS { public UInt32 Signature; public IMAGE_FILE_HEADER FileHeader; public IMAGE_OPTIONAL_HEADER32 OptionalHeader32; public IMAGE_OPTIONAL_HEADER64 OptionalHeader64; }
         [StructLayout(LayoutKind.Sequential)] public struct IMAGE_FILE_HEADER { public UInt16 Machine; public UInt16 NumberOfSections; public UInt32 TimeDateStamp; public UInt32 PointerToSymbolTable; public UInt32 NumberOfSymbols; public UInt16 SizeOfOptionalHeader; public UInt16 Characteristics; }
@@ -32,18 +30,14 @@ namespace test
         }
 
 
-        static IntPtr AuxGetProcAddress(String dll_name, String func_name) {
-           
+        static IntPtr AuxGetProcAddress(IntPtr pDosHdr, String func_name) {
             IntPtr hProcess = Process.GetCurrentProcess().Handle;
-            // IntPtr pDosHdr = GetModuleHandle(dll_name);
-            IntPtr pDosHdr = LoadLibrary(dll_name);
-
             byte[] data = new byte[0x200];
             ReadProcessMemory(hProcess, pDosHdr, data, data.Length, out _);
 
             IMAGE_DOS_HEADER _dosHeader = MarshalBytesTo<IMAGE_DOS_HEADER>(data);
             String dos_header_signature = _dosHeader.e_magic.ToString("X");
-            uint e_lfanew_offset = _dosHeader.e_lfanew; // BitConverter.ToUInt32(data, 0x3c);
+            uint e_lfanew_offset = _dosHeader.e_lfanew;
             IntPtr nthdr = IntPtr.Add(pDosHdr, Convert.ToInt32(e_lfanew_offset));
 
             byte[] data2 = new byte[0x200];
@@ -58,8 +52,9 @@ namespace test
             
             int numberDataDirectory = (_fileHeader.SizeOfOptionalHeader / 16) - 1;
             IMAGE_DATA_DIRECTORY[] optionalHeaderDataDirectory = _optionalHeader.DataDirectory;
+            uint exportTableRVA = optionalHeaderDataDirectory[0].VirtualAddress;
 
-            /**/
+            /*
             // FOR DEBUGGING
             Console.WriteLine("DOS Header: \t\t\t0x{0}", pDosHdr.ToString("X"));
             Console.WriteLine("DOS Signature: \t\t\t0x{0}", dos_header_signature);
@@ -72,59 +67,72 @@ namespace test
             {
                 Console.WriteLine("VirtualAddress/Size: \t0x{0}     \t0x{1}", idd.VirtualAddress.ToString("X"), idd.Size.ToString("X"));
             }
-            /**/
-
-            uint exportTableRVA = optionalHeaderDataDirectory[0].VirtualAddress;
+            */
 
             if (exportTableRVA != 0)
             {
-                
                 IntPtr exportTableAddress = IntPtr.Add(pDosHdr, (int)exportTableRVA);
                 byte[] data4 = new byte[0x200];
                 ReadProcessMemory(hProcess, exportTableAddress, data4, data4.Length, out _);
                 IMAGE_EXPORT_DIRECTORY exportTable = MarshalBytesTo<IMAGE_EXPORT_DIRECTORY>(data4);
 
                 UInt32 numberOfNames = exportTable.NumberOfNames;
+                UInt32 base_value = exportTable.Base;
                 UInt32 addressOfFunctionsVRA = exportTable.AddressOfFunctions;
                 UInt32 addressOfNamesVRA = exportTable.AddressOfNames;
                 UInt32 addressOfNameOrdinalsVRA = exportTable.AddressOfNameOrdinals;
                 IntPtr addressOfFunctionsRA = IntPtr.Add(pDosHdr, (int)addressOfFunctionsVRA);
                 IntPtr addressOfNamesRA = IntPtr.Add(pDosHdr, (int)addressOfNamesVRA);
-                IntPtr addressOfNameOrdinalsRA = IntPtr.Add(pDosHdr, (int)addressOfFunctionsVRA);
+                IntPtr addressOfNameOrdinalsRA = IntPtr.Add(pDosHdr, (int)addressOfNameOrdinalsVRA);
 
-                /**/
+                /*
                 // FOR DEBUGGING
                 Console.WriteLine("\nExport Table (RVA):\t\t0x{0}", exportTableRVA.ToString("X"));
                 Console.WriteLine("Export Table (RA):\t\t0x{0}\n", exportTableAddress.ToString("X"));
-                Console.WriteLine("Number Of Names (Functions)\t{0}\n", numberOfNames);
+                
+                Console.WriteLine("Number Of Names (Functions)\t{0}", numberOfNames);
+                Console.WriteLine("Base \t\t\t\t{0}\n", base_value);
+
                 Console.WriteLine("AddressOfFunctions (VRA)\t0x{0}", addressOfFunctionsVRA.ToString("X"));
                 Console.WriteLine("AddressOfFunctions (RA) \t0x{0}", addressOfFunctionsRA.ToString("X"));
                 Console.WriteLine("AddressOfNames (VRA)\t\t0x{0}", addressOfNamesVRA.ToString("X"));
                 Console.WriteLine("AddressOfNames (RA)\t\t0x{0}", addressOfNamesRA.ToString("X"));
                 Console.WriteLine("AddressOfNameOrdinals (VRA)\t0x{0}", addressOfNameOrdinalsVRA.ToString("X"));
                 Console.WriteLine("AddressOfNameOrdinals (RA)\t0x{0}\n", addressOfNameOrdinalsRA.ToString("X"));
-                /**/
+                */
 
                 IntPtr auxaddressOfNamesRA = addressOfNamesRA;
+                IntPtr auxaddressOfNameOrdinalsRA = addressOfNameOrdinalsRA;
+                IntPtr auxaddressOfFunctionsRA = addressOfFunctionsRA;
+
                 for (int i = 0; i < numberOfNames; i++)
                 {
                     byte[] data5 = new byte[4];
                     ReadProcessMemory(hProcess, auxaddressOfNamesRA, data5, data5.Length, out _);
                     UInt32 functionAddressVRA = MarshalBytesTo<UInt32>(data5);
-                    IntPtr functionAddressRA = IntPtr.Add(pDosHdr, (int)functionAddressVRA);                    
+                    IntPtr functionAddressRA = IntPtr.Add(pDosHdr, (int)functionAddressVRA);
                     byte[] data6 = new byte[50];
                     ReadProcessMemory(hProcess, functionAddressRA, data6, data6.Length, out _);
                     String functionName = Encoding.ASCII.GetString(data6.TakeWhile(b => !b.Equals(0)).ToArray());
-
                     // FOR DEBUGGING
                     /*
                     Console.WriteLine("Function: {0} ({1})", functionName, functionAddressRA.ToString("X"));
                     */
-
                     if (functionName == func_name) {
-                        return functionAddressRA;
+                        // AdddressofNames --> AddressOfNamesOrdinals
+                        byte[] data7 = new byte[4];
+                        ReadProcessMemory(hProcess, auxaddressOfNameOrdinalsRA, data7, data7.Length, out _);
+                        UInt16 ordinal = MarshalBytesTo<UInt16>(data7);
+                        // AddressOfNamesOrdinals --> AddressOfFunctions
+                        auxaddressOfFunctionsRA += 4 * ordinal;
+                        byte[] data8 = new byte[4];
+                        ReadProcessMemory(hProcess, auxaddressOfFunctionsRA, data8, data8.Length, out _);
+                        UInt32 auxaddressOfFunctionsRAVal = MarshalBytesTo<UInt32>(data8);
+                        IntPtr functionAddress = IntPtr.Add(pDosHdr, (int)auxaddressOfFunctionsRAVal);
+                        return functionAddress;
                     }
                     auxaddressOfNamesRA += 4;
+                    auxaddressOfNameOrdinalsRA += 2;
                 }
             }
             return IntPtr.Zero;
@@ -140,8 +148,9 @@ namespace test
             }
             string dll_name = args[0];
             string func_name = args[1];
-            IntPtr func_address = AuxGetProcAddress(dll_name, func_name);
             
+            IntPtr dll_handle = LoadLibrary(dll_name); // Alternative: IntPtr pDosHdr = GetModuleHandle(dll_name);
+            IntPtr func_address = AuxGetProcAddress(dll_handle, func_name);
 
             if (func_address == IntPtr.Zero)
             {
@@ -150,8 +159,7 @@ namespace test
             else
             {
                 Console.WriteLine("\n[+] Address of {0} ({1}): 0x{2}", func_name, dll_name, func_address.ToString("X"));
-                // Console.WriteLine("\n[+] Address of {0} ({1}): 0x{2}", func_name, dll_name, GetProcAddress(GetModuleHandle(dll_name), func_name).ToString("X"));
-                // Console.ReadLine();
+                // Console.WriteLine("\n[+] Address of {0} ({1}): 0x{2} [GetProcAddress]", func_name, dll_name, GetProcAddress(LoadLibrary(dll_name), func_name).ToString("X"));
             }
         }
     }
