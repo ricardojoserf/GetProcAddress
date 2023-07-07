@@ -111,9 +111,10 @@ namespace GetProcAddress
                     ReadProcessMemory(hProcess, auxaddressOfNamesRA, data5, data5.Length, out _);
                     UInt32 functionAddressVRA = MarshalBytesTo<UInt32>(data5);
                     IntPtr functionAddressRA = IntPtr.Add(pDosHdr, (int)functionAddressVRA);
-                    byte[] data6 = new byte[50];
+                    byte[] data6 = new byte[func_name.Length];
                     ReadProcessMemory(hProcess, functionAddressRA, data6, data6.Length, out _);
-                    String functionName = Encoding.ASCII.GetString(data6.TakeWhile(b => !b.Equals(0)).ToArray());
+                    //String functionName = Encoding.ASCII.GetString(data6.TakeWhile(b => !b.Equals(0)).ToArray());
+                    String functionName = Encoding.ASCII.GetString(data6);
                     // FOR DEBUGGING
                     /*
                     Console.WriteLine("Function: {0} ({1})", functionName, functionAddressRA.ToString("X"));
