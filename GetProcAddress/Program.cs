@@ -50,28 +50,28 @@ namespace GetProcAddress
             
             if (exportTableRVA_value != 0)
             {
-                // NumberOfNames: ExportTableRVA(IMAGE_EXPORT_DIRECTORY)->NumberOfNames
+                // NumberOfNames: ExportTable(IMAGE_EXPORT_DIRECTORY)->NumberOfNames
                 IntPtr numberOfNames_addr = pDosHdr + (int)exportTableRVA_value + 0x18;
                 byte[] numberOfNames_bytearr = new byte[4];
                 ReadProcessMemory(hProcess, numberOfNames_addr, numberOfNames_bytearr, numberOfNames_bytearr.Length, out _);
                 int numberOfNames_value = (int)BitConverter.ToUInt32(numberOfNames_bytearr, 0);
                 Console.WriteLine("[*] numberOfNames: \t\t\t\t0x" + (numberOfNames_value).ToString("X"));
 
-                // AddressOfFunctions: ExportTableRVA(IMAGE_EXPORT_DIRECTORY)->AddressOfFunctions
+                // AddressOfFunctions: ExportTable(IMAGE_EXPORT_DIRECTORY)->AddressOfFunctions
                 IntPtr addressOfFunctionsVRA_addr = pDosHdr + (int)exportTableRVA_value + 0x1C;
                 byte[] addressOfFunctionsVRA_bytearr = new byte[4];
                 ReadProcessMemory(hProcess, addressOfFunctionsVRA_addr, addressOfFunctionsVRA_bytearr, addressOfFunctionsVRA_bytearr.Length, out _);
                 ulong addressOfFunctionsVRA_value = BitConverter.ToUInt32(addressOfFunctionsVRA_bytearr, 0);
                 Console.WriteLine("[*] addressOfFunctionsVRA: \t\t\t0x" + (addressOfFunctionsVRA_value).ToString("X"));
 
-                // AddressOfNames: ExportTableRVA(IMAGE_EXPORT_DIRECTORY)->AddressOfNames
+                // AddressOfNames: ExportTable(IMAGE_EXPORT_DIRECTORY)->AddressOfNames
                 IntPtr addressOfNamesVRA_addr = pDosHdr + (int)exportTableRVA_value + 0x20;
                 byte[] addressOfNamesVRA_bytearr = new byte[4];
                 ReadProcessMemory(hProcess, addressOfNamesVRA_addr, addressOfNamesVRA_bytearr, addressOfNamesVRA_bytearr.Length, out _);
                 ulong addressOfNamesVRA_value = BitConverter.ToUInt32(addressOfNamesVRA_bytearr, 0);
                 Console.WriteLine("[*] addressOfNamesVRA: \t\t\t\t0x" + (addressOfNamesVRA_value).ToString("X"));
 
-                // AddressOfNameOrdinals: ExportTableRVA(IMAGE_EXPORT_DIRECTORY)->AddressOfNameOrdinals
+                // AddressOfNameOrdinals: ExportTable(IMAGE_EXPORT_DIRECTORY)->AddressOfNameOrdinals
                 IntPtr addressOfNameOrdinalsVRA_addr = pDosHdr + (int)exportTableRVA_value + 0x24;
                 byte[] addressOfNameOrdinalsVRA_bytearr = new byte[4];
                 ReadProcessMemory(hProcess, addressOfNameOrdinalsVRA_addr, addressOfNameOrdinalsVRA_bytearr, addressOfNameOrdinalsVRA_bytearr.Length, out _);
