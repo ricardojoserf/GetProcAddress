@@ -19,7 +19,6 @@ namespace GetProcAddress
             int exportrva_offset = 136;
             if (IntPtr.Size == 4)
             {
-                Console.WriteLine("[+] 32-bit process");
                 exportrva_offset = 120;
             }
 
