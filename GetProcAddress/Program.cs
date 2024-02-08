@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Text;
-using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -16,6 +15,14 @@ namespace GetProcAddress
 
         static IntPtr CustomGetProcAddress(IntPtr pDosHdr, String func_name)
         {
+            // One offset changes between 32 and 64-bit processes
+            int exportrva_offset = 136;
+            if (IntPtr.Size == 4)
+            {
+                Console.WriteLine("[+] 32-bit process");
+                exportrva_offset = 120;
+            }
+
             // Current process handle
             IntPtr hProcess = Process.GetCurrentProcess().Handle;
 
@@ -35,12 +42,12 @@ namespace GetProcAddress
             int numberDataDirectory = ((int)sizeopthdr_value / 16) - 1;
 
             // exportTableRVA: Optional Header(IMAGE_OPTIONAL_HEADER64)->DataDirectory(IMAGE_DATA_DIRECTORY)[0]->VirtualAddress
-            IntPtr exportTableRVA_addr = pDosHdr + (int)e_lfanew_value + 24 + 112; // IMAGE_OPTIONAL_HEADER64 size: 240; IMAGE_DATA_DIRECTORY size: 8; 240 - (16 * 8) = 224
+            IntPtr exportTableRVA_addr = pDosHdr + (int)e_lfanew_value + exportrva_offset;
             byte[] exportTableRVA_bytearr = new byte[4];
             ReadProcessMemory(hProcess, exportTableRVA_addr, exportTableRVA_bytearr, exportTableRVA_bytearr.Length, out _);
             ulong exportTableRVA_value = BitConverter.ToUInt32(exportTableRVA_bytearr, 0);
-            Console.WriteLine("[*] exportTableRVA: \t\t\t\t0x" + (exportTableRVA_value).ToString("X"));
-
+            Console.WriteLine("[*] exportTableRVA address: \t\t\t0x" + (exportTableRVA_addr).ToString("X"));
+            
             if (exportTableRVA_value != 0)
             {
                 // NumberOfNames: ExportTableRVA(IMAGE_EXPORT_DIRECTORY)->NumberOfNames
@@ -83,17 +90,11 @@ namespace GetProcAddress
                 {
                     byte[] data5 = new byte[Marshal.SizeOf(typeof(UInt32))];
                     ReadProcessMemory(hProcess, auxaddressOfNamesRA, data5, data5.Length, out _);
-                    // UInt32 functionAddressVRA = MarshalBytesTo<UInt32>(data5);
                     UInt32 functionAddressVRA = (UInt32) BitConverter.ToUInt32(data5, 0);
                     IntPtr functionAddressRA = IntPtr.Add(pDosHdr, (int)functionAddressVRA);
                     byte[] data6 = new byte[func_name.Length];
                     ReadProcessMemory(hProcess, functionAddressRA, data6, data6.Length, out _);
-                    //String functionName = Encoding.ASCII.GetString(data6.TakeWhile(b => !b.Equals(0)).ToArray());
                     String functionName = Encoding.ASCII.GetString(data6);
-                    // FOR DEBUGGING
-                    /*
-                    Console.WriteLine("Function: {0} ({1})", functionName, functionAddressRA.ToString("X"));
-                    */
                     if (functionName == func_name)
                     {
                         // AdddressofNames --> AddressOfNamesOrdinals
@@ -127,7 +128,6 @@ namespace GetProcAddress
             string func_name = args[1];
 
             IntPtr dll_handle = LoadLibrary(dll_name); // Alternative: IntPtr dll_handle = GetModuleHandle(dll_name);
-            // IntPtr dll_handle = GetModuleHandle(dll_name);
             IntPtr func_address = CustomGetProcAddress(dll_handle, func_name);
 
             if (func_address == IntPtr.Zero)
@@ -136,7 +136,7 @@ namespace GetProcAddress
             }
             else
             {
-                Console.WriteLine("[+] Address of {0} ({1}): 0x{2}", func_name, dll_name, func_address.ToString("X"));
+                Console.WriteLine("[+] RESULT: \t\t\t\t\t0x" + func_address.ToString("X"));
                 // Console.WriteLine("[+] Address of {0} ({1}): 0x{2} [GetProcAddress]", func_name, dll_name, GetProcAddress(LoadLibrary(dll_name), func_name).ToString("X"));
             }
         }
