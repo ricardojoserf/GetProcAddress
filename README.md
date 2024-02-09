@@ -1,11 +1,18 @@
 # GetProcAddress - C# implementation
 
-This function takes a DLL handle and a function name or ordinal, walks the PEB and returns the function address. 
+It works like the [GetProcAddress](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress) WinAPI: it takes a DLL handle and a function name or ordinal, walks the PEB structure and returns the function address. 
 
-It works like the [GetProcAddress](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress) function so it is useful if you want to avoid using it. This implementation uses only the ReadProcessMemory API call.
+It only uses the [ReadProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-readprocessmemory) WinAPI call, without using structs.
 
-It is the same idea than Sektor7's Malware Intermediate course by [reenz0h](https://twitter.com/reenz0h), but in that course the code is C++ and I wanted a implementation like this in C#, I could not find it so maybe this is useful for someone else.
-
-There is a binary to test the functionality: 
+It works in both 32-bit and 64-bit processes. You can test this using the binaries in the Releases section:
 
 ![img](https://raw.githubusercontent.com/ricardojoserf/ricardojoserf.github.io/master/images/getProcAddress/Screenshot_2.png)
+
+
+---------------------------------
+
+### Sources
+
+- Sektor7's Malware Intermediate course by [reenz0h](https://twitter.com/reenz0h) implements this code in C++
+
+- PE File Format Offsets: [http://www.sunshine2k.de/reversing/tuts/tut_pe.htm](http://www.sunshine2k.de/reversing/tuts/tut_pe.htm)
